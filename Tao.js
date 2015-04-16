@@ -170,23 +170,25 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
                 else tpl_keys[key][ATTS] = tpl_keys[key][ATTS].concat(hash[nid][ATTS][key]);
             }
         }
-        return tpl_keys;
+        return {node: node, keys: tpl_keys};
     }
 ;
 
 function Tpl( tpl, re_keys )
 {
-    if ( !tpl ) return null;
+    var renderer;
+    if ( tpl )
+    {
     if ( tpl.substr && tpl.substring )
     {
-        var tpl_keys = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */);
-        var renderer = function( data ) {
-            var l = tpl_keys.length,
+        tpl = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */);
+        renderer = function renderer( data ) {
+            var tpl = renderer.tpl, l = tpl.length, t,
                 i, notIsSub, s, out = ''
             ;
             for (i=0; i<l; i++)
             {
-                notIsSub = tpl_keys[ i ][ 0 ]; s = tpl_keys[ i ][ 1 ];
+                t = tpl[ i ]; notIsSub = t[ 0 ]; s = t[ 1 ];
                 if ( notIsSub )
                 {
                     out += s;
@@ -195,20 +197,19 @@ function Tpl( tpl, re_keys )
                 {
                     // allow to render/update tempate with partial data updates only
                     // check if not key set and re-use the previous value (if any)
-                    if ( data[HAS](s) ) tpl_keys[i][2] = String(data[ s ]);
-                    out += tpl_keys[i][2];
+                    if ( data[HAS](s) ) t[ 2 ] = String(data[ s ]);
+                    out += t[ 2 ];
                 }
             }
             return out;
         };
-        renderer.dispose = function(){ tpl = null; tpl_keys = null; };
-        return renderer;
     }
     else //if (tpl is dom_node)
     {
-        var tpl_keys = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */ );
-        var renderer = function( data ) {
-            var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt;
+        tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */ );
+        renderer = function renderer( data ) {
+            var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt, 
+                tpl = renderer.tpl, tpl_keys = tpl.keys;
             keys = Keys(data); kl = keys.length
             for (k=0; k<kl; k++)
             {
@@ -235,9 +236,15 @@ function Tpl( tpl, re_keys )
                 }
             }
         };
-        renderer.dispose = function(){ tpl = null; tpl_keys = null; };
-        return renderer;
     }
+    }
+    else
+    {
+        renderer = function(){};
+    }
+    renderer.tpl = tpl;
+    renderer.dispose = function( ){ renderer.tpl = null; };
+    return renderer;
 }
 Tpl.VERSION = "0.2";
 // export it

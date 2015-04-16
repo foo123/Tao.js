@@ -12,7 +12,7 @@ console.log(tao_renderer(tpl_data));
 
 if ( isNode )
 {
-    // update the template with only partial data (preevious values will be used where missing)
+    // update the template with only partial data (previous values will be used where missing)
     console.log(tao_renderer({user: 'Yianis'}));
 }
 
