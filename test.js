@@ -3,12 +3,18 @@ var isNode = 'undefined' !== typeof global && '[object global]' === Object.proto
 var Tao = isNode ? require('./Tao.js') : window.Tao;
 var tpl = isNode ? '<div id="node" class="$(className)">Hello $(user), your location is $(location)</div>' : document.getElementById('node');
 var keys_re = /\$\(([^\)]+)\)/;
-var data = {className: 'div-class', user: 'Nikos', location: 'GR'};
-var taoTpl = Tao(tpl, keys_re);
+var tpl_data = {className: 'div-class', user: 'Nikos', location: 'GR'};
+var tao_renderer = Tao(tpl, keys_re);
 
 // render/update templates
 
-console.log(taoTpl(data));
+console.log(tao_renderer(tpl_data));
+
+if ( isNode )
+{
+    // update the template with only partial data (preevious values will be used where missing)
+    console.log(tao_renderer({user: 'Yianis'}));
+}
 
 // dispose the templates and any dependencies
-taoTpl.dispose(); // does NOT remove any dom Node
+tao_renderer.dispose(); // does NOT remove any dom Node

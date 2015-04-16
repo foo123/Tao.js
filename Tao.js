@@ -2,7 +2,7 @@
 *  Tao
 *  A simple, tiny, isomorphic, precise and fast template engine for handling both string and live dom based templates
 *
-*  @version: 0.1
+*  @version: 0.2
 *  https://github.com/foo123/Tao.js
 *
 **/
@@ -30,24 +30,22 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
     ,KEYS = 0, ATTS = 1, Keys = Object.keys
     // use hexadecimal string representation in order to have optimal key distribution in hash (??)
     ,nuuid = 0, node_uuid = function( n ) { return n.$TID$ = n.$TID$ || n.id || ('_TID_'+(++nuuid).toString(16)); }
-    ,multisplit_str = function( str, re_keys ) {
+    ,multisplit_string = function multisplit_string( str, re_keys ) {
         var tpl = [ ], i = 0, m;
-        re_keys = new RegExp(re_keys.source, "g"); // make sure global flag is there
         // find and split the tpl_keys
         while ( m = re_keys.exec( str ) )
         {
             tpl.push([1, str.slice(i, re_keys.lastIndex - m[0].length)]);
-            tpl.push([0, m[1] ? m[1] : m[0]]);
+            tpl.push([0, m[1] ? m[1] : m[0], undef]);
             i = re_keys.lastIndex;
         }
         tpl.push([1, str.slice(i)]);
         return tpl;
     }
-    ,multisplit_node = function( node, re_keys ) {
+    ,multisplit_node = function multisplit_node( node, re_keys ) {
         var tpl_keys, matchedNodes, matchedAtts, i, l, m, matched, n, a, key, nid, atnodes,
             keyNode, aNodes, aNodesCached, txt, rest, stack, keyNodes, keyAtts, hash = {}
         ;
-        re_keys = new RegExp(re_keys.source, ""); // make sure global flag is removed
          matchedNodes = [ ]; matchedAtts = [ ]; n = node;
         // find the nodes having tpl_keys
         if ( n.attributes && (l=n.attributes.length) ) 
@@ -181,7 +179,7 @@ function Tpl( tpl, re_keys )
     if ( !tpl ) return null;
     if ( tpl.substr && tpl.substring )
     {
-        var tpl_keys = multisplit_str( tpl, re_keys );
+        var tpl_keys = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */);
         var renderer = function( data ) {
             var l = tpl_keys.length,
                 i, notIsSub, s, out = ''
@@ -189,16 +187,26 @@ function Tpl( tpl, re_keys )
             for (i=0; i<l; i++)
             {
                 notIsSub = tpl_keys[ i ][ 0 ]; s = tpl_keys[ i ][ 1 ];
-                out += (notIsSub ? s : String(data[ s ]));
+                if ( notIsSub )
+                {
+                    out += s;
+                }
+                else
+                {
+                    // allow to render/update tempate with partial data updates only
+                    // check if not key set and re-use the previous value (if any)
+                    if ( data[HAS](s) ) tpl_keys[i][2] = String(data[ s ]);
+                    out += tpl_keys[i][2];
+                }
             }
             return out;
         };
         renderer.dispose = function(){ tpl = null; tpl_keys = null; };
         return renderer;
     }
-    else //if (tpl.)
+    else //if (tpl is dom_node)
     {
-        var tpl_keys = multisplit_node( tpl, re_keys );
+        var tpl_keys = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */ );
         var renderer = function( data ) {
             var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt;
             keys = Keys(data); kl = keys.length
@@ -231,7 +239,7 @@ function Tpl( tpl, re_keys )
         return renderer;
     }
 }
-Tpl.VERSION = "0.1";
+Tpl.VERSION = "0.2";
 // export it
 return Tpl;
 });
