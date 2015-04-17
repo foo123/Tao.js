@@ -27,7 +27,7 @@
 "use strict";
 
 var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'parentNode'
-    ,KEYS = 0, ATTS = 1, Keys = Object.keys
+    ,KEYS = 0, ATTS = 1, NODE = 1, Keys = Object.keys
     // use hexadecimal string representation in order to have optimal key distribution in hash (??)
     ,nuuid = 0, node_uuid = function( n ) { return n.$TID$ = n.$TID$ || n.id || ('_TID_'+(++nuuid).toString(16)); }
     ,multisplit_string = function multisplit_string( str, re_keys ) {
@@ -97,7 +97,7 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
             {
                 // node contains more text than just the $(key) ref
                 do {
-                    key = m[1]; keyNode = rest.splitText( m.index );
+                    key = m[1] ? m[1] : m[0]; keyNode = rest.splitText( m.index );
                     rest = keyNode.splitText( m[0].length );
                     (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
                     m = rest[VALUE][MATCH]( re_keys );
@@ -105,7 +105,7 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
             }
             else
             {
-                key = m[1]; keyNode = rest;
+                key = m[1] ? m[1] : m[0]; keyNode = rest;
                 (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
             }
         }
@@ -125,7 +125,7 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
                 {
                     // attr contains more text than just the $(key) ref
                     do {
-                        key = m[1];
+                        key = m[1] ? m[1] : m[0];
                         keyNode = rest.splitText( m.index );
                         rest = keyNode.splitText( m[0].length );
                         aNodes[ txt ][0].push( key );
@@ -138,7 +138,7 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
                 }
                 else
                 {
-                    keyNode = rest; key = m[1];
+                    keyNode = rest; key = m[1] ? m[1] : m[0];
                     aNodes[ txt ][0].push( key );
                     (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
                     (keyAtts[key]=keyAtts[key]||[]).push( [a, aNodes[ txt ][1], txt] );
@@ -170,7 +170,7 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
                 else tpl_keys[key][ATTS] = tpl_keys[key][ATTS].concat(hash[nid][ATTS][key]);
             }
         }
-        return {node: node, keys: tpl_keys};
+        return [tpl_keys, node];
     }
 ;
 
@@ -209,7 +209,7 @@ function Tpl( tpl, re_keys )
         tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */ );
         renderer = function renderer( data ) {
             var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt, 
-                tpl = renderer.tpl, tpl_keys = tpl.keys;
+                tpl = renderer.tpl, tpl_keys = tpl[KEYS];
             keys = Keys(data); kl = keys.length
             for (k=0; k<kl; k++)
             {
