@@ -2,7 +2,7 @@
 *  Tao
 *  A simple, tiny, isomorphic, precise and fast template engine for handling both string and live dom based templates
 *
-*  @version: 0.2
+*  @version: 0.3-alpha
 *  https://github.com/foo123/Tao.js
 *
 **/
@@ -26,7 +26,7 @@
     /* module factory */        function( exports, undef ) {
 "use strict";
 
-var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'parentNode'
+var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', TYPE = 'nodeType', PARENT = 'parentNode'
     ,KEYS = 0, ATTS = 1, NODE = 1, Keys = Object.keys
     // use hexadecimal string representation in order to have optimal key distribution in hash (??)
     ,nuuid = 0, node_uuid = function( n ) { return n.$TID$ = n.$TID$ || n.id || ('_TID_'+(++nuuid).toString(16)); }
@@ -42,13 +42,13 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
         tpl.push([1, str.slice(i)]);
         return tpl;
     }
-    ,multisplit_node = function multisplit_node( node, re_keys ) {
+    ,multisplit_node = function multisplit_node( node, re_keys, revivable ) {
         var tpl_keys, matchedNodes, matchedAtts, i, l, m, matched, n, a, key, nid, atnodes,
             keyNode, aNodes, aNodesCached, txt, rest, stack, keyNodes, keyAtts, hash = {}
         ;
          matchedNodes = [ ]; matchedAtts = [ ]; n = node;
         // find the nodes having tpl_keys
-        if ( n.attributes && (l=n.attributes.length) ) 
+        if ( !revivable && n.attributes && (l=n.attributes.length) ) 
         {
             for (i=0; i<l; i++)
             {
@@ -56,16 +56,32 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
                 if ( m=a[VALUE][MATCH](re_keys) ) matchedAtts.push([a, m, n]);
             }
         }
-        if ( 3 === n.nodeType ) // textNode 
+        if ( 3 === n[TYPE] ) // textNode 
         {
-            if ( m=n[VALUE][MATCH](re_keys) ) matchedNodes.push([n, m, n[PARENT]]);
+            if ( revivable ) 
+            {
+                // match key:val annotations in wrapping comments
+                if ( n.previousSibling && n.nextSibling && 
+                    8 === n.previousSibling[TYPE] && 8 === n.nextSibling[TYPE] &&
+                    'key:' === (key=n.previousSibling[VALUE]).slice(0,4) &&
+                    '/key' === n.nextSibling[VALUE]
+                ) 
+                {
+                    m = [n[VALUE], key.slice(4)];
+                    matchedNodes.push([n, m, n[PARENT]]);
+                }
+            }
+            else if ( m=n[VALUE][MATCH](re_keys) ) 
+            {
+                matchedNodes.push([n, m, n[PARENT]]);
+            }
         }  
         else if ( n.firstChild )
         {
             stack = [ n=n.firstChild ];
             while ( stack.length ) 
             {
-                if ( n.attributes && (l=n.attributes.length) ) 
+                if ( !revivable && n.attributes && (l=n.attributes.length) ) 
                 {
                     for (i=0; i<l; i++)
                     {
@@ -76,7 +92,26 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
                 if ( n.firstChild ) stack.push( n=n.firstChild );
                 else 
                 {
-                    if ( 3 === n.nodeType && (m=n[VALUE][MATCH](re_keys)) ) matchedNodes.push([n, m, n[PARENT]]);
+                    if ( 3 === n[TYPE] )
+                    {
+                        if ( revivable )
+                        {
+                            // match key:val annotations in wrapping comments
+                            if ( n.previousSibling && n.nextSibling && 
+                                8 === n.previousSibling[TYPE] && 8 === n.nextSibling[TYPE] &&
+                                'key:' === (key=n.previousSibling[VALUE]).slice(0,4) &&
+                                '/key' === n.nextSibling[VALUE]
+                            ) 
+                            {
+                                m = [n[VALUE], key.slice(4)];
+                                matchedNodes.push([n, m, n[PARENT]]);
+                            }
+                        }
+                        else if ( (m=n[VALUE][MATCH](re_keys)) ) 
+                        {
+                            matchedNodes.push([n, m, n[PARENT]]);
+                        }
+                    }
                     n = stack.pop( );
                     while ( stack.length && !n.nextSibling ) n = stack.pop( );
                     if ( n.nextSibling ) stack.push( n=n.nextSibling );
@@ -174,18 +209,19 @@ var HAS = 'hasOwnProperty', MATCH = 'match', VALUE = 'nodeValue', PARENT = 'pare
     }
 ;
 
-function Tpl( tpl, re_keys )
+function Tpl( tpl, re_keys, revivable )
 {
     var renderer;
     if ( tpl )
     {
     if ( tpl.substr && tpl.substring )
     {
-        tpl = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */);
-        renderer = function renderer( data ) {
+        tpl = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */, revivable );
+        renderer = function renderer( data, revivable ) {
             var tpl = renderer.tpl, l = tpl.length, t,
                 i, notIsSub, s, out = ''
             ;
+            revivable = true === revivable;
             for (i=0; i<l; i++)
             {
                 t = tpl[ i ]; notIsSub = t[ 0 ]; s = t[ 1 ];
@@ -198,7 +234,8 @@ function Tpl( tpl, re_keys )
                     // allow to render/update tempate with partial data updates only
                     // check if not key set and re-use the previous value (if any)
                     if ( data[HAS](s) ) t[ 2 ] = String(data[ s ]);
-                    out += t[ 2 ];
+                    if ( revivable ) out += '<!--key:'+s+'-->' + t[ 2 ] + '<!--/key-->';
+                    else out += t[ 2 ];
                 }
             }
             return out;
@@ -206,7 +243,7 @@ function Tpl( tpl, re_keys )
     }
     else //if (tpl is dom_node)
     {
-        tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */ );
+        tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */, true === revivable );
         renderer = function renderer( data ) {
             var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt, 
                 tpl = renderer.tpl, tpl_keys = tpl[KEYS];
@@ -246,7 +283,7 @@ function Tpl( tpl, re_keys )
     renderer.dispose = function( ){ renderer.tpl = null; };
     return renderer;
 }
-Tpl.VERSION = "0.2";
+Tpl.VERSION = "0.3-alpha";
 // export it
 return Tpl;
 });
