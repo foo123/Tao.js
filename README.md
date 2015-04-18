@@ -1,6 +1,6 @@
 # Tao.js
 
-**A simple, tiny (~3kB minified, ~1.5kB gzipped), isomorphic, precise and fast template engine for handling both string and live dom based templates.**
+**A simple, tiny (~5kB minified, ~2kB gzipped), isomorphic, precise and fast template engine for handling both string and live dom based templates. No dependencies.**
 
 ![Tao.js](tao.jpg)
 
@@ -37,24 +37,56 @@ However decided to unify these parts into a tiny re-usable and modular library.
 // Tao is a UMD module and can be used in both Node, browser <script></script> tags and requireJS
 var isNode = 'undefined' !== typeof global && '[object global]' === Object.prototype.toString.call(global);
 var Tao = isNode ? require('./Tao.js') : window.Tao;
-var tpl = isNode ? '<div id="node" class="$(className)">Hello $(user), your location is $(location)</div>' : document.getElementById('node');
 var keys_re = /\$\(([^\)]+)\)/;
-var tpl_data = {className: 'div-class', user: 'Nikos', location: 'GR'};
-var tao_renderer = Tao(tpl, keys_re);
-
-// render/update templates
-
-console.log(tao_renderer(tpl_data));
+var tpl_data = {className1: 'div-class1', className3: 'div-class3', attribute: 'attribute', user: 'Nikos', location: 'GR'};
 
 if ( isNode )
 {
-    // update the template with only partial data (previous values will be used where missing)
-    console.log(tao_renderer({user: 'Yianis'}));
+    var str_tpl = '<div id="node" class="$(className1) div-class2 $(className3)" data-att="$(attribute) $(className1)">Hello $(user), your location is $(location)</div>';
+    var tao_renderer = Tao( str_tpl, keys_re );
+    console.log(tao_renderer(tpl_data));
+    // re-render/update template with only partial data (previous values will be used if missing)
+    console.log(tao_renderer({user: 'Yianis', className3: 'div-class4'}));
+    // dispose the templates and any dependencies
+    tao_renderer.dispose();
 }
-
-// dispose the templates and any dependencies
-tao_renderer.dispose(); // does NOT remove any dom Node
+else
+{
+    var str_tpl = '<div id="node2" class="$(className1) div-class2 $(className3)" data-att="$(attribute) $(className1)">Hello $(user), your location is $(location)</div>';
+    var tao_renderer_str = Tao( str_tpl, keys_re );
+    // render template so it can be revived on client-side from rendered string
+    document.body.innerHTML += tao_renderer_str( tpl_data, true );
+    var dom_tpl = document.getElementById('node');
+    var dom_tpl_revivable = document.getElementById('node2');
+    var tao_renderer_dom = Tao( dom_tpl, keys_re );
+    // template can be revived on client-side from rendered string
+    var tao_renderer_dom_revivable = Tao( dom_tpl_revivable, keys_re, true );
+    tao_renderer_dom(tpl_data);
+    // template can be revived on client-side from rendered string
+    tao_renderer_dom_revivable({user: 'Yianis', className3: 'div-class4'});
+    // dispose the templates and any dependencies
+    tao_renderer_str.dispose();
+    tao_renderer_dom.dispose(); // does NOT remove any dom Node
+    tao_renderer_dom_revivable.dispose(); // does NOT remove any dom Node
+}
 ```
+
+
+**Isomorphism**
+
+**Tao** can handle templates both in string format and live DOM Node format.
+String Templates accept a string input (the template) and output also a string. Dom Templates accept a live DOM Node as input (the template) and update this same node with the given data in an efficient and fast way.
+
+On the server-side one can render the templates (with given data) as html strings and revive these templates (which are now HTML DOM Nodes) on the client. This is how isomorphism works for the Tao engine.
+
+
+**Template Revival**
+
+**Template revival** feature (version 0.3+) is what gives Tao Engine its (full) isomorphism capability. Other approaches at template isomorphy employ *Virtual DOM* (e.g React.js) or some other **diffing/patching pattern**. The problem is that when a template is rendered as html string, the information about where the dynamic parts (template keys) are in the template is lost, so the client-side part of the isomorphic code cannot take it from there and continue. Tao solves this problem by **elevating the functionality of HTML comments**, which are not rendered on the browser and which can be used to annotate the template with the missing template key information (when rendered as html string e.g on the server). Then the client-side part of the engine can *revive* the rendered html template and make it a **live DOM template** with minimum processing and hussle as if it was defined directly as DOM template and not passed as already rendered html template. This can be very efficient.
+
+
+If a template is to be revived, one sets the `revivable` option to **true** (**false** by default) both on the string template when rendered and on the definition of the revived dom template (see test examples).
+
 
 **Tests**
 
@@ -68,3 +100,4 @@ to be added
 
 **Todo**
 
+* add `foreach` functionality for data keys which are arrays/collections
