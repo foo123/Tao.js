@@ -4,8 +4,10 @@
 
 ![Tao.js](tao.jpg)
 
+[Tao.js](https://raw.githubusercontent.com/foo123/Tao.js/master/Tao.js),  [Tao.min.js](https://raw.githubusercontent.com/foo123/Tao.js/master/Tao.min.js)
 
-see also:
+
+**see also:**
 
 * [Contemplate](https://github.com/foo123/Contemplate) a light-weight template engine for Node/JS, PHP, Python, ActionScript
 * [ModelView](https://github.com/foo123/modelview.js) a light-weight and flexible MVVM framework for JavaScript/HTML5
@@ -22,6 +24,23 @@ see also:
 
 Parts of this tiny project were implemented and used in other projects like Xpresion, Contemplate and ModelView. 
 However decided to unify these parts into a tiny re-usable and modular library.
+
+
+**Isomorphism**
+
+**Tao** can handle templates both as a string format and as a live DOM Node format.
+String Templates accept a string input (the template) and output also a string. Dom Templates accept a live DOM Node as input (the template) and update this same node with the given data in an efficient and fast way.
+
+On the server-side one can render the templates (with given data) as html strings and revive these templates (which are now HTML DOM Nodes) on the client. This is how isomorphism works for the Tao engine.
+
+
+**Template Revival**
+
+**Template revival** feature (version 0.3+) is what gives Tao Engine its (full) isomorphism capability. Other approaches at template isomorphy employ *Virtual DOM* (e.g React.js) or some other **diffing/patching pattern**. The problem is that when a template is rendered as html string, the information about where the dynamic parts (template keys) are in the template is lost, so the client-side part of the isomorphic code cannot take it from there and continue. Tao solves this problem by **elevating the functionality of HTML comments**, which are not rendered on the browser and which can be used to annotate the template with the missing template key information (when rendered as html string e.g on the server). Then the client-side part of the engine can *revive* the rendered html template and make it a **live DOM template** with minimum processing and hussle as if it was defined directly as DOM template and not passed as already rendered html template. This can be very efficient.
+
+
+If a template is to be revived, one sets the `revivable` option to **true** (**false** by default) both on the string template when defined and on the definition of the revived dom template (see test examples).
+
 
 
 **API and Examples**
@@ -53,9 +72,9 @@ if ( isNode )
 else
 {
     var str_tpl = '<div id="node2" class="$(className1) div-class2 $(className3)" data-att="$(attribute) $(className1)">Hello $(user), your location is $(location)</div>';
-    var tao_renderer_str = Tao( str_tpl, keys_re );
-    // render template so it can be revived on client-side from rendered string
-    document.body.innerHTML += tao_renderer_str( tpl_data, true );
+    // manipulate template so it can be revived on client-side from rendered string
+    var tao_renderer_str = Tao( str_tpl, keys_re, true );
+    document.body.innerHTML += tao_renderer_str( tpl_data );
     var dom_tpl = document.getElementById('node');
     var dom_tpl_revivable = document.getElementById('node2');
     var tao_renderer_dom = Tao( dom_tpl, keys_re );
@@ -71,21 +90,6 @@ else
 }
 ```
 
-
-**Isomorphism**
-
-**Tao** can handle templates both in string format and live DOM Node format.
-String Templates accept a string input (the template) and output also a string. Dom Templates accept a live DOM Node as input (the template) and update this same node with the given data in an efficient and fast way.
-
-On the server-side one can render the templates (with given data) as html strings and revive these templates (which are now HTML DOM Nodes) on the client. This is how isomorphism works for the Tao engine.
-
-
-**Template Revival**
-
-**Template revival** feature (version 0.3+) is what gives Tao Engine its (full) isomorphism capability. Other approaches at template isomorphy employ *Virtual DOM* (e.g React.js) or some other **diffing/patching pattern**. The problem is that when a template is rendered as html string, the information about where the dynamic parts (template keys) are in the template is lost, so the client-side part of the isomorphic code cannot take it from there and continue. Tao solves this problem by **elevating the functionality of HTML comments**, which are not rendered on the browser and which can be used to annotate the template with the missing template key information (when rendered as html string e.g on the server). Then the client-side part of the engine can *revive* the rendered html template and make it a **live DOM template** with minimum processing and hussle as if it was defined directly as DOM template and not passed as already rendered html template. This can be very efficient.
-
-
-If a template is to be revived, one sets the `revivable` option to **true** (**false** by default) both on the string template when rendered and on the definition of the revived dom template (see test examples).
 
 
 **Tests**

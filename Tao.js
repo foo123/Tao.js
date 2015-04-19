@@ -32,7 +32,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
     ,to_int = function(v){return parseInt(v,10);}
     // use hexadecimal string representation in order to have optimal key distribution in hash (??)
     ,nuuid = 0, node_uuid = function( n ) { return n.$TID$ = n.$TID$ || n.id || ('_TID_'+(++nuuid).toString(16)); }
-    ,multisplit_string = function multisplit_string( str, re_keys ) {
+    ,multisplit_string = function multisplit_string( str, re_keys, revivable ) {
         var tpl = [ ], i = 0, m, sel_pos, sel, ch, ind,
             atName = false, atIndex, atKeyStart = -1, atKeyEnd = -1, atPos = 0,
             openTag, closeTag, tagEnd, insideTag = false;
@@ -41,19 +41,19 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
         {
             sel_pos = re_keys.lastIndex - m[0].length;
             sel = str.slice(i, sel_pos);
-            openTag = sel[POS]('<'); closeTag = sel[POS]('>');
-            // match and annotate open close xml tags as well
-            if ( openTag > closeTag /*&& '/' !== sel.charAt(openTag+1)*/ ) 
+            tagEnd = -1;
+            if ( revivable )
             {
-                tagEnd = -1; insideTag = true;
-            }
-            else if ( closeTag > openTag ) 
-            {
-                tagEnd = closeTag+1; insideTag = false;
-            }
-            else
-            {
-                tagEnd = -1;
+                openTag = sel[POS]('<'); closeTag = sel[POS]('>');
+                // match and annotate open close xml tags as well
+                if ( openTag > closeTag /*&& '/' !== sel.charAt(openTag+1)*/ ) 
+                {
+                    tagEnd = -1; insideTag = true;
+                }
+                else if ( closeTag > openTag ) 
+                {
+                    tagEnd = closeTag+1; insideTag = false;
+                }
             }
             tpl.push([1, insideTag, sel, tagEnd]);
             
@@ -81,19 +81,19 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
             i = re_keys.lastIndex;
         }
         sel = str.slice(i);
-        openTag = sel[POS]('<'); closeTag = sel[POS]('>');
-        // match and annotate open close xml tags as well
-        if ( openTag > closeTag /*&& '/' !== sel.charAt(openTag+1)*/ ) 
+        tagEnd = -1;
+        if ( revivable )
         {
-            tagEnd = -1; insideTag = true;
-        }
-        else if ( closeTag > openTag ) 
-        {
-            tagEnd = closeTag+1; insideTag = false;
-        }
-        else
-        {
-            tagEnd = -1;
+            openTag = sel[POS]('<'); closeTag = sel[POS]('>');
+            // match and annotate open close xml tags as well
+            if ( openTag > closeTag /*&& '/' !== sel.charAt(openTag+1)*/ ) 
+            {
+                tagEnd = -1; insideTag = true;
+            }
+            else if ( closeTag > openTag ) 
+            {
+                tagEnd = closeTag+1; insideTag = false;
+            }
         }
         tpl.push([1, insideTag, sel, tagEnd]);
         return tpl;
@@ -315,16 +315,16 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
 function Tpl( tpl, re_keys, revivable )
 {
     var renderer;
+    revivable = true === revivable;
     if ( tpl )
     {
     if ( tpl.substr && tpl.substring )
     {
         tpl = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */, revivable );
-        renderer = function renderer( data, revivable ) {
+        renderer = function renderer( data ) {
             var tpl = renderer.tpl, l = tpl.length, t, atts = [],
                 i, notIsSub, s, insideTag, out = ''
             ;
-            revivable = true === revivable;
             for (i=0; i<l; i++)
             {
                 t = tpl[ i ]; 
@@ -367,7 +367,7 @@ function Tpl( tpl, re_keys, revivable )
     }
     else //if (tpl is dom_node)
     {
-        tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */, true === revivable );
+        tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */, revivable );
         renderer = function renderer( data ) {
             var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt, 
                 tpl = renderer.tpl, tpl_keys = tpl[0/*KEYS*/];

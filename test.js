@@ -17,9 +17,9 @@ if ( isNode )
 else
 {
     var str_tpl = '<div id="node2" class="$(className1) div-class2 $(className3)" data-att="$(attribute) $(className1)">Hello $(user), your location is $(location)</div>';
-    var tao_renderer_str = Tao( str_tpl, keys_re );
-    // render template so it can be revived on client-side from rendered string
-    document.body.innerHTML += tao_renderer_str( tpl_data, true );
+    // manipulate template so it can be revived on client-side from rendered string
+    var tao_renderer_str = Tao( str_tpl, keys_re, true );
+    document.body.innerHTML += tao_renderer_str( tpl_data );
     var dom_tpl = document.getElementById('node');
     var dom_tpl_revivable = document.getElementById('node2');
     var tao_renderer_dom = Tao( dom_tpl, keys_re );
