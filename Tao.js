@@ -35,7 +35,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
     ,multisplit_string = function multisplit_string( str, re_keys, revivable ) {
         var tpl = [ ], i = 0, m, sel_pos, sel, ch, ind,
             atName = false, atIndex, atKeyStart = -1, atKeyEnd = -1, atPos = 0,
-            openTag, closeTag, tagEnd, insideTag = false;
+            openTag, closeTag, tagEnd, insideTag = false, tpl_keys = {}, key;
         // find and split the tpl_keys
         while ( m = re_keys.exec( str ) )
         {
@@ -77,7 +77,10 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
             {
                 atName = false; atPos = 0; atKeyStart = -1;
             }
-            tpl.push([0, insideTag, m[1] ? m[1] : m[0], undef, atName, atKeyStart]);
+            key = m[1] ? m[1] : m[0];
+            if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [tpl.length];
+            else tpl_keys[key].push(tpl.length);
+            tpl.push([0, insideTag, key, undef, atName, atKeyStart]);
             i = re_keys.lastIndex;
         }
         sel = str.slice(i);
@@ -96,7 +99,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
             }
         }
         tpl.push([1, insideTag, sel, tagEnd]);
-        return tpl;
+        return [tpl_keys, tpl];
     }
     ,multisplit_node = function multisplit_node( node, re_keys, revivable ) {
         var tpl_keys, matchedNodes, matchedAtts, i, l, m, matched, matches, ml, n, a, key, nid, atnodes,
@@ -322,7 +325,7 @@ function Tpl( tpl, re_keys, revivable )
     {
         tpl = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */, revivable );
         renderer = function renderer( data ) {
-            var tpl = renderer.tpl, l = tpl.length, t, atts = [],
+            var tpl = renderer.tpl[1/*TPL*/], l = tpl.length, t, atts = [],
                 i, notIsSub, s, insideTag, out = ''
             ;
             for (i=0; i<l; i++)
@@ -370,7 +373,7 @@ function Tpl( tpl, re_keys, revivable )
         tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */, revivable );
         renderer = function renderer( data ) {
             var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt, 
-                tpl = renderer.tpl, tpl_keys = tpl[0/*KEYS*/];
+                tpl_keys = renderer.tpl[0/*KEYS*/];
             keys = Keys(data); kl = keys.length
             for (k=0; k<kl; k++)
             {
