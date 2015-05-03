@@ -2,7 +2,7 @@
 *  Tao
 *  A simple, tiny, isomorphic, precise and fast template engine for handling both string and live dom based templates
 *
-*  @version: 0.3
+*  @version: 0.3.1
 *  https://github.com/foo123/Tao.js
 *
 **/
@@ -27,11 +27,9 @@
 "use strict";
 
 var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
-    ,VALUE = 'nodeValue', TYPE = 'nodeType', PARENT = 'parentNode'
+    ,VALUE = 'nodeValue', NODETYPE = 'nodeType', PARENTNODE = 'parentNode'
     ,Keys = Object.keys, ATT_RE = /[a-zA-Z0-9_\-]/
     ,to_int = function(v){return parseInt(v,10);}
-    // use hexadecimal string representation in order to have optimal key distribution in hash (??)
-    ,nuuid = 0, node_uuid = function( n ) { return n.$TID$ = n.$TID$ || n.id || ('_TID_'+(++nuuid).toString(16)); }
     ,multisplit_string = function multisplit_string( str, re_keys, revivable ) {
         var tpl = [ ], i = 0, m, sel_pos, sel, ch, ind,
             atName = false, atIndex, atKeyStart = -1, atKeyEnd = -1, atPos = 0,
@@ -102,15 +100,15 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
         return [tpl_keys, tpl];
     }
     ,multisplit_node = function multisplit_node( node, re_keys, revivable ) {
-        var tpl_keys, matchedNodes, matchedAtts, i, l, m, matched, matches, ml, n, a, key, nid, atnodes,
-            keyNode, aNodes, aNodesCached, txt, atName, att, pos, rest, stack, keyNodes, keyAtts, hash = {}
+        var tpl_keys, matchedNodes, matchedAtts, i, l, m, matched, matches, ml, n, a, key, 
+            keyNode, atnodes, aNodes, aNodesCached, txt, txtkey, txtcnt = 0, atName, att, pos, rest, stack
         ;
          matchedNodes = [ ]; matchedAtts = [ ]; n = node;
         // find the nodes having tpl_keys
         if ( n.attributes && (l=n.attributes.length) ) 
         {
             // revive: match key:val attribute annotations in wrapping comments
-            if ( revivable && n.firstChild && 8 === n.firstChild[TYPE] && 'att:' === n.firstChild[VALUE].slice(0,4) )
+            if ( revivable && n.firstChild && 8 === n.firstChild[NODETYPE] && 'att:' === n.firstChild[VALUE].slice(0,4) )
             {
                 matches = n.firstChild[VALUE].split("\n"); l = matches.length; 
                 atnodes = {};
@@ -134,21 +132,21 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 }
             }
         }
-        if ( 3 === n[TYPE] ) // textNode 
+        if ( 3 === n[NODETYPE] ) // textNode 
         {
             // revive: match key:val annotations in wrapping comments
             if ( revivable && n.previousSibling && n.nextSibling && 
-                8 === n.previousSibling[TYPE] && 8 === n.nextSibling[TYPE] &&
+                8 === n.previousSibling[NODETYPE] && 8 === n.nextSibling[NODETYPE] &&
                 'key:' === (key=n.previousSibling[VALUE]).slice(0,4) &&
                 '/key' === n.nextSibling[VALUE]
             ) 
             {
                 m = [n[VALUE], key.slice(4)];
-                matchedNodes.push([n, m, n[PARENT]]);
+                matchedNodes.push([n, m, n[PARENTNODE]]);
             }
             else if ( m=n[VALUE][MATCH](re_keys) ) 
             {
-                matchedNodes.push([n, m, n[PARENT]]);
+                matchedNodes.push([n, m, n[PARENTNODE]]);
             }
         }  
         else if ( n.firstChild )
@@ -159,7 +157,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 if ( n.attributes && (l=n.attributes.length) ) 
                 {
                     // revive: match key:val attribute annotations in wrapping comments
-                    if ( revivable && n.firstChild && 8 === n.firstChild[TYPE] && 'att:' === n.firstChild[VALUE].slice(0,4) )
+                    if ( revivable && n.firstChild && 8 === n.firstChild[NODETYPE] && 'att:' === n.firstChild[VALUE].slice(0,4) )
                     {
                         matches = n.firstChild[VALUE].split("\n"); l = matches.length; 
                         atnodes = {};
@@ -186,21 +184,21 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 if ( n.firstChild ) stack.push( n=n.firstChild );
                 else 
                 {
-                    if ( 3 === n[TYPE] )
+                    if ( 3 === n[NODETYPE] )
                     {
                         // revive: match key:val annotations in wrapping comments
                         if ( revivable && n.previousSibling && n.nextSibling && 
-                            8 === n.previousSibling[TYPE] && 8 === n.nextSibling[TYPE] &&
+                            8 === n.previousSibling[NODETYPE] && 8 === n.nextSibling[NODETYPE] &&
                             'key:' === (key=n.previousSibling[VALUE]).slice(0,4) &&
                             '/key' === n.nextSibling[VALUE]
                         ) 
                         {
                             m = [n[VALUE], key.slice(4)];
-                            matchedNodes.push([n, m, n[PARENT]]);
+                            matchedNodes.push([n, m, n[PARENTNODE]]);
                         }
                         else if ( (m=n[VALUE][MATCH](re_keys)) ) 
                         {
-                            matchedNodes.push([n, m, n[PARENT]]);
+                            matchedNodes.push([n, m, n[PARENTNODE]]);
                         }
                     }
                     n = stack.pop( );
@@ -210,14 +208,11 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
             }
         }
         // split the tpl_keys nodes
-        atnodes = { };
+        tpl_keys = { };
         for (i=0,l=matchedNodes.length; i<l; i++)
         {
             matched = matchedNodes[ i ];
             rest = matched[0]; m = matched[1]; n = matched[2];
-            nid = node_uuid( n );
-            hash[nid] = hash[nid] || [{},{}]; atnodes[nid] = n;
-            keyNodes = hash[nid][0/*KEYS*/];
             txt = rest[VALUE];  
             if ( txt.length > m[0].length )
             {
@@ -225,14 +220,16 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 do {
                     key = m[1] ? m[1] : m[0]; keyNode = rest.splitText( m.index );
                     rest = keyNode.splitText( m[0].length );
-                    (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
+                    if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, []/*ATTS*/];
+                    else tpl_keys[key][0/*KEYS*/].push( [keyNode, n] );
                     m = rest[VALUE][MATCH]( re_keys );
                 } while ( m );
             }
             else
             {
                 key = m[1] ? m[1] : m[0]; keyNode = rest;
-                (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
+                if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, []/*ATTS*/];
+                else tpl_keys[key][0/*KEYS*/].push( [keyNode, n] );
             }
         }
         aNodes = { };
@@ -240,13 +237,11 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
         {
             matched = matchedAtts[ i ];
             a = matched[0]; m = matched[1]; n = matched[2];
-            nid = node_uuid( n );
-            hash[nid] = hash[nid] || [{},{}]; atnodes[nid] = n;
-            keyNodes = hash[nid][0/*KEYS*/]; keyAtts = hash[nid][1/*ATTS*/];
-            txt = a[VALUE];  aNodesCached = (txt in aNodes);
+            txt = a[VALUE];  txtkey = txt; aNodesCached = (txtkey in aNodes);
+            if ( aNodesCached ) {txtkey += '_' + (++txtcnt); aNodesCached = false;}
             if ( !aNodesCached ) 
             {
-                rest = document.createTextNode(txt||''); aNodes[ txt ] = [[], [ rest ]];
+                rest = document.createTextNode(txt||''); aNodes[ txtkey ] = [[], [ rest ]];
                 if ( 1 === m[0] ) // revived attribute
                 {
                     matches = m[1]; ml = matches.length; pos = 0;
@@ -256,10 +251,10 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                         key = att[0];
                         keyNode = rest.splitText( att[1][0]-pos );
                         rest = keyNode.splitText( att[1][1] );
-                        aNodes[ txt ][0].push( key );
-                        aNodes[ txt ][1].push( keyNode, rest ); 
-                        (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
-                        (keyAtts[key]=keyAtts[key]||[]).push( [a, aNodes[ txt ][1], txt] );
+                        aNodes[ txtkey ][0].push( key );
+                        aNodes[ txtkey ][1].push( keyNode, rest ); 
+                        if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes[ txtkey ][1], txt, n]]/*ATTS*/];}
+                        else {tpl_keys[key][0/*KEYS*/].push( [keyNode, n] ); tpl_keys[key][1/*ATTS*/].push( [a, aNodes[ txtkey ][1], txt, n] );}
                         pos += att[1][1] + att[1][0];
                     }
                 }
@@ -270,46 +265,30 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                         key = m[1] ? m[1] : m[0];
                         keyNode = rest.splitText( m.index );
                         rest = keyNode.splitText( m[0].length );
-                        aNodes[ txt ][0].push( key );
-                        aNodes[ txt ][1].push( keyNode, rest ); 
-                        (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
-                        (keyAtts[key]=keyAtts[key]||[]).push( [a, aNodes[ txt ][1], txt] );
+                        aNodes[ txtkey ][0].push( key );
+                        aNodes[ txtkey ][1].push( keyNode, rest ); 
+                        if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes[ txtkey ][1], txt, n]]/*ATTS*/];}
+                        else {tpl_keys[key][0/*KEYS*/].push( [keyNode, n] ); tpl_keys[key][1/*ATTS*/].push( [a, aNodes[ txtkey ][1], txt, n] );}
                         m = rest[VALUE][MATCH]( re_keys );
                     } while ( m );
                 }
                 else
                 {
                     keyNode = rest; key = m[1] ? m[1] : m[0];
-                    aNodes[ txt ][0].push( key );
-                    (keyNodes[key]=keyNodes[key]||[]).push( keyNode );
-                    (keyAtts[key]=keyAtts[key]||[]).push( [a, aNodes[ txt ][1], txt] );
+                    aNodes[ txtkey ][0].push( key );
+                    if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes[ txtkey ][1], txt, n]]/*ATTS*/];}
+                    else {tpl_keys[key][0/*KEYS*/].push( [keyNode, n] ); tpl_keys[key][1/*ATTS*/].push( [a, aNodes[ txtkey ][1], txt, n] );}
                 }
             }
-            else
+            /*else
             {
                 // share txt nodes between same (value) attributes
-                for (m=0; m<aNodes[ txt ][0].length; m++)
-                    keyAtts[aNodes[ txt ][0][m]].push( [a, aNodes[ txt ][1], txt] );
-            }
-        }
-        
-        // convert to another hash format based on tpl_key
-        tpl_keys = {};
-        for (nid in hash)
-        {
-            if ( !hash[HAS](nid) ) continue;
-            for (key in hash[nid][0/*KEYS*/] )
-            {
-                if ( !hash[nid][0/*KEYS*/][HAS](key) ) continue;
-                if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [hash[nid][0/*KEYS*/][key], hash[nid][1/*ATTS*/][key]||[]];
-                else tpl_keys[key][0/*KEYS*/] = tpl_keys[key][0/*KEYS*/].concat(hash[nid][0/*KEYS*/][key]);
-            }
-            for (key in hash[nid][1/*ATTS*/] )
-            {
-                if ( !hash[nid][1/*ATTS*/][HAS](key) ) continue;
-                if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [hash[nid][0/*KEYS*/][key]||[], hash[nid][1/*ATTS*/][key]];
-                else tpl_keys[key][1/*ATTS*/] = tpl_keys[key][1/*ATTS*/].concat(hash[nid][1/*ATTS*/][key]);
-            }
+                for (m=0; m<aNodes[ txtkey ][0].length; m++)
+                {
+                    key = aNodes[ txtkey ][0][m];
+                    tpl_keys[key][1/*ATTS* /].push( [a, aNodes[ txtkey ][1], txt, n] );
+                }
+            }*/
         }
         return [tpl_keys, node];
     }
@@ -384,7 +363,7 @@ function Tpl( tpl, re_keys, revivable )
                 keyNodes = tpl_keys[key][0/*KEYS*/]; 
                 for (i=0,l=keyNodes.length; i<l; i++) 
                 {
-                    keyNodes[i][VALUE] = val;
+                    keyNodes[i][0][VALUE] = val;
                 }
                 
                 // element live attributes
@@ -410,7 +389,7 @@ function Tpl( tpl, re_keys, revivable )
     renderer.dispose = function( ){ renderer.tpl = null; };
     return renderer;
 }
-Tpl.VERSION = "0.3";
+Tpl.VERSION = "0.3.1";
 // export it
 return Tpl;
 });
