@@ -7,20 +7,20 @@
 *
 **/
 !function( root, name, factory ) {
-    "use strict";
-    //
-    // export the module, umd-style (no other dependencies)
-    var isCommonJS = ("object" === typeof(module)) && module.exports, 
-        isAMD = ("function" === typeof(define)) && define.amd, m;
-    // CommonJS, node, etc..
-    if ( isCommonJS ) 
-        module.exports = (module.$deps = module.$deps || {})[ name ] = module.$deps[ name ] || (factory.call( root, {NODE:module} ) || 1);
-    // AMD, requireJS, etc..
-    else if ( isAMD && ("function" === typeof(require)) && ("function" === typeof(require.specified)) && require.specified(name) ) 
-        define( name, ['require', 'exports', 'module'], function( require, exports, module ){ return factory.call( root, {AMD:module} ); } );
-    // browser, web worker, etc.. + AMD, other loaders
-    else if ( !(name in root) ) 
-        (root[ name ] = (m=factory.call( root, {} ) || 1)) && isAMD && define( name, [], function( ){ return m; } );
+"use strict";
+//
+// export the module, umd-style (no other dependencies)
+var isCommonJS = ("object" === typeof(module)) && module.exports, 
+    isAMD = ("function" === typeof(define)) && define.amd, m;
+// CommonJS, node, etc..
+if ( isCommonJS ) 
+    module.exports = (module.$deps = module.$deps || {})[ name ] = module.$deps[ name ] || (factory.call( root, {NODE:module} ) || 1);
+// AMD, requireJS, etc..
+else if ( isAMD && ("function" === typeof(require)) && ("function" === typeof(require.specified)) && require.specified(name) ) 
+    define( name, ['require', 'exports', 'module'], function( require, exports, module ){ return factory.call( root, {AMD:module} ); } );
+// browser, web worker, etc.. + AMD, other loaders
+else if ( !(name in root) ) 
+    (root[ name ] = (m=factory.call( root, {} ) || 1)) && isAMD && define( name, [], function( ){ return m; } );
 }(  /* current root */          this, 
     /* module name */           "Tao",
     /* module factory */        function( exports, undef ) {
@@ -275,7 +275,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 else
                 {
                     keyNode = rest; key = m[1] ? m[1] : m[0];
-                    aNodes[ txtkey ][0].push( key );
+                    aNodes/*[ txtkey ]*/[0].push( key );
                     if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes/*[ txtkey ]*/[1], txt, n]]/*ATTS*/];}
                     else {tpl_keys[key][0/*KEYS*/].push( [keyNode, n] ); tpl_keys[key][1/*ATTS*/].push( [a, aNodes/*[ txtkey ]*/[1], txt, n] );}
                 }
