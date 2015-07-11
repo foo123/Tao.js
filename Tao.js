@@ -2,7 +2,7 @@
 *  Tao
 *  A simple, tiny, isomorphic, precise and fast template engine for handling both string and live dom based templates
 *
-*  @version: 0.3.2
+*  @version: 0.3.3
 *  https://github.com/foo123/Tao.js
 *
 **/
@@ -28,6 +28,7 @@ else if ( !(name in root) )
 
 var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
     ,VALUE = 'nodeValue', NODETYPE = 'nodeType', PARENTNODE = 'parentNode'
+    ,G = 'global', I = 'ignoreCase'
     ,Keys = Object.keys, ATT_RE = /[a-zA-Z0-9_\-]/
     ,to_int = function(v){return parseInt(v,10);}
     ,multisplit_string = function multisplit_string( str, re_keys, revivable ) {
@@ -302,7 +303,7 @@ function Tpl( tpl, re_keys, revivable )
     {
     if ( tpl.substr && tpl.substring )
     {
-        tpl = multisplit_string( tpl, new RegExp(re_keys.source, "g") /* make sure global flag is added */, revivable );
+        tpl = multisplit_string( tpl, re_keys[G] ? re_keys : new RegExp(re_keys.source, re_keys[I]?"gi":"g") /* make sure global flag is added */, revivable );
         renderer = function renderer( data ) {
             var tpl = renderer.tpl[1/*TPL*/], l = tpl.length, t, atts = [],
                 i, notIsSub, s, insideTag, out = ''
@@ -349,7 +350,7 @@ function Tpl( tpl, re_keys, revivable )
     }
     else //if (tpl is dom_node)
     {
-        tpl = multisplit_node( tpl, new RegExp(re_keys.source, "") /* make sure global flag is removed */, revivable );
+        tpl = multisplit_node( tpl, re_keys[G] ? new RegExp(re_keys.source, re_keys[I]?"i":"") : re_keys /* make sure global flag is removed */, revivable );
         renderer = function renderer( data ) {
             var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt, 
                 tpl_keys = renderer.tpl[0/*KEYS*/];
@@ -389,7 +390,7 @@ function Tpl( tpl, re_keys, revivable )
     renderer.dispose = function( ){ renderer.tpl = null; };
     return renderer;
 }
-Tpl.VERSION = "0.3.2";
+Tpl.VERSION = "0.3.3";
 // export it
 return Tpl;
 });
