@@ -2,39 +2,42 @@
 *  Tao
 *  A simple, tiny, isomorphic, precise and fast template engine for handling both string and live dom based templates
 *
-*  @version: 0.3.3
+*  @version: 0.3.4
 *  https://github.com/foo123/Tao.js
 *
 **/
 !function( root, name, factory ) {
 "use strict";
-//
-// export the module, umd-style (no other dependencies)
-var isCommonJS = ("object" === typeof(module)) && module.exports, 
-    isAMD = ("function" === typeof(define)) && define.amd, m;
-// CommonJS, node, etc..
-if ( isCommonJS ) 
-    module.exports = (module.$deps = module.$deps || {})[ name ] = module.$deps[ name ] || (factory.call( root, {NODE:module} ) || 1);
-// AMD, requireJS, etc..
-else if ( isAMD && ("function" === typeof(require)) && ("function" === typeof(require.specified)) && require.specified(name) ) 
-    define( name, ['require', 'exports', 'module'], function( require, exports, module ){ return factory.call( root, {AMD:module} ); } );
-// browser, web worker, etc.. + AMD, other loaders
-else if ( !(name in root) ) 
-    (root[ name ] = (m=factory.call( root, {} ) || 1)) && isAMD && define( name, [], function( ){ return m; } );
-}(  /* current root */          this, 
-    /* module name */           "Tao",
-    /* module factory */        function( exports, undef ) {
+if ( 'object' === typeof exports )
+    // CommonJS module
+    module.exports = factory( );
+else if ( 'function' === typeof define && define.amd )
+    // AMD. Register as an anonymous module.
+    define(function( req ) { return factory( ); });
+else
+    root[name] = factory( );
+}(this, 'Tao', function( undef ) {
 "use strict";
 
 var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
     ,VALUE = 'nodeValue', NODETYPE = 'nodeType', PARENTNODE = 'parentNode'
     ,G = 'global', I = 'ignoreCase'
     ,Keys = Object.keys, ATT_RE = /[a-zA-Z0-9_\-]/
-    ,to_int = function(v){return parseInt(v,10);}
-    ,multisplit_string = function multisplit_string( str, re_keys, revivable ) {
+    ,to_int = function(v){return parseInt(v||0,10)||0;}
+    ,get_nested_key = function( key, item, sep ) {
+        var kk = key.split(sep||'.'), kl = kk.length-1, k, o = item;
+        for (k=0; k<kl; k++)
+        {
+            if ( null != o[kk[k]] ) o = o[kk[k]];
+            else { o = null; break; }
+        }
+        return o ? [1, o[kk[kl]]] : [0, null];
+    }
+    ,multisplit_string = function multisplit_string( str, re_keys, revivable, key_separator ) {
         var tpl = [ ], i = 0, m, sel_pos, sel, ch, ind,
             atName = false, atIndex, atKeyStart = -1, atKeyEnd = -1, atPos = 0,
-            openTag, closeTag, tagEnd, insideTag = false, tpl_keys = {}, key;
+            openTag, closeTag, tagEnd, insideTag = false, tpl_keys = {},
+            key, with_nested_keys = !!key_separator;
         // find and split the tpl_keys
         while ( m = re_keys.exec( str ) )
         {
@@ -79,7 +82,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
             key = m[1] ? m[1] : m[0];
             if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [tpl.length];
             else tpl_keys[key].push(tpl.length);
-            tpl.push([0, insideTag, key, undef, atName, atKeyStart]);
+            tpl.push([0, insideTag, key, undef, atName, atKeyStart, with_nested_keys && (-1 < key.indexOf(key_separator)) ? key_separator : 0]);
             i = re_keys.lastIndex;
         }
         sel = str.slice(i);
@@ -100,9 +103,10 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
         tpl.push([1, insideTag, sel, tagEnd]);
         return [tpl_keys, tpl];
     }
-    ,multisplit_node = function multisplit_node( node, re_keys, revivable ) {
+    ,multisplit_node = function multisplit_node( node, re_keys, revivable, key_separator ) {
         var tpl_keys, matchedNodes, matchedAtts, i, l, m, matched, matches, ml, n, a, key, 
-            keyNode, atnodes, aNodes, aNodesCached, txt, txtkey, txtcnt = 0, atName, att, pos, rest, stack
+            keyNode, atnodes, aNodes, aNodesCached, txt, txtkey, txtcnt = 0, atName, att, pos, rest, stack,
+            nested_key, with_nested_keys = !!key_separator
         ;
          matchedNodes = [ ]; matchedAtts = [ ]; n = node;
         // find the nodes having tpl_keys
@@ -129,7 +133,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 for (i=0; i<l; i++)
                 {
                     a = n.attributes[ i ];
-                    if ( m=a[VALUE][MATCH](re_keys) ) matchedAtts.push([0, a, m, n]);
+                    if ( m=a[VALUE][MATCH](re_keys) ) matchedAtts.push([a, m, n]);
                 }
             }
         }
@@ -221,7 +225,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 do {
                     key = m[1] ? m[1] : m[0]; keyNode = rest.splitText( m.index );
                     rest = keyNode.splitText( m[0].length );
-                    if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, []/*ATTS*/];
+                    if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, []/*ATTS*/, with_nested_keys && (-1 < key.indexOf(key_separator)) ? key_separator : 0];
                     else tpl_keys[key][0/*KEYS*/].push( [keyNode, n] );
                     m = rest[VALUE][MATCH]( re_keys );
                 } while ( m );
@@ -229,7 +233,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
             else
             {
                 key = m[1] ? m[1] : m[0]; keyNode = rest;
-                if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, []/*ATTS*/];
+                if ( !tpl_keys[HAS](key) ) tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, []/*ATTS*/, with_nested_keys && (-1 < key.indexOf(key_separator)) ? key_separator : 0];
                 else tpl_keys[key][0/*KEYS*/].push( [keyNode, n] );
             }
         }
@@ -254,7 +258,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                         rest = keyNode.splitText( att[1][1] );
                         aNodes/*[ txtkey ]*/[0].push( key );
                         aNodes/*[ txtkey ]*/[1].push( keyNode, rest ); 
-                        if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes/*[ txtkey ]*/[1], txt, n]]/*ATTS*/];}
+                        if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes/*[ txtkey ]*/[1], txt, n]]/*ATTS*/, with_nested_keys && (-1 < key.indexOf(key_separator)) ? key_separator : 0];}
                         else {tpl_keys[key][0/*KEYS*/].push( [keyNode, n] ); tpl_keys[key][1/*ATTS*/].push( [a, aNodes/*[ txtkey ]*/[1], txt, n] );}
                         pos += att[1][1] + att[1][0];
                     }
@@ -268,7 +272,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                         rest = keyNode.splitText( m[0].length );
                         aNodes/*[ txtkey ]*/[0].push( key );
                         aNodes/*[ txtkey ]*/[1].push( keyNode, rest ); 
-                        if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes/*[ txtkey ]*/[1], txt, n]]/*ATTS*/];}
+                        if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes/*[ txtkey ]*/[1], txt, n]]/*ATTS*/, with_nested_keys && (-1 < key.indexOf(key_separator)) ? key_separator : 0];}
                         else {tpl_keys[key][0/*KEYS*/].push( [keyNode, n] ); tpl_keys[key][1/*ATTS*/].push( [a, aNodes/*[ txtkey ]*/[1], txt, n] );}
                         m = rest[VALUE][MATCH]( re_keys );
                     } while ( m );
@@ -277,7 +281,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
                 {
                     keyNode = rest; key = m[1] ? m[1] : m[0];
                     aNodes/*[ txtkey ]*/[0].push( key );
-                    if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes/*[ txtkey ]*/[1], txt, n]]/*ATTS*/];}
+                    if ( !tpl_keys[HAS](key) ) {tpl_keys[key] = [[[keyNode, n]]/*KEYS*/, [[a, aNodes/*[ txtkey ]*/[1], txt, n]]/*ATTS*/, with_nested_keys && (-1 < key.indexOf(key_separator)) ? key_separator : 0];}
                     else {tpl_keys[key][0/*KEYS*/].push( [keyNode, n] ); tpl_keys[key][1/*ATTS*/].push( [a, aNodes/*[ txtkey ]*/[1], txt, n] );}
                 }
             /*}
@@ -295,7 +299,7 @@ var HAS = 'hasOwnProperty', POS = 'lastIndexOf', MATCH = 'match'
     }
 ;
 
-function Tpl( tpl, re_keys, revivable )
+function Tpl( tpl, re_keys, revivable, nested_key_separator )
 {
     var renderer;
     revivable = true === revivable;
@@ -303,10 +307,10 @@ function Tpl( tpl, re_keys, revivable )
     {
     if ( tpl.substr && tpl.substring )
     {
-        tpl = multisplit_string( tpl, re_keys[G] ? re_keys : new RegExp(re_keys.source, re_keys[I]?"gi":"g") /* make sure global flag is added */, revivable );
+        tpl = multisplit_string( tpl, re_keys[G] ? re_keys : new RegExp(re_keys.source, re_keys[I]?"gi":"g") /* make sure global flag is added */, revivable, nested_key_separator );
         renderer = function renderer( data ) {
             var tpl = renderer.tpl[1/*TPL*/], l = tpl.length, t, atts = [],
-                i, notIsSub, s, insideTag, out = ''
+                i, notIsSub, s, insideTag, nestedKey, nk, out = ''
             ;
             for (i=0; i<l; i++)
             {
@@ -328,7 +332,15 @@ function Tpl( tpl, re_keys, revivable )
                 {
                     // enable to render/update tempate with partial data updates only
                     // check if not key set and re-use the previous value (if any)
-                    if ( data[HAS](s) ) t[ 3 ] = String(data[ s ]);
+                    if ( (nestedKey = t[ 6 ]) )
+                    {
+                        nk = get_nested_key( s, data, nestedKey );
+                        if ( nk[0] ) t[ 3 ] = String(nk[1]);
+                    }
+                    else if ( data[HAS](s) )
+                    {
+                        t[ 3 ] = String(data[ s ]);
+                    }
                     // add comment annotations for template to be revived on client-side
                     if ( revivable ) 
                     {
@@ -350,25 +362,32 @@ function Tpl( tpl, re_keys, revivable )
     }
     else //if (tpl is dom_node)
     {
-        tpl = multisplit_node( tpl, re_keys[G] ? new RegExp(re_keys.source, re_keys[I]?"i":"") : re_keys /* make sure global flag is removed */, revivable );
+        tpl = multisplit_node( tpl, re_keys[G] ? new RegExp(re_keys.source, re_keys[I]?"i":"") : re_keys /* make sure global flag is removed */, revivable, nested_key_separator );
         renderer = function renderer( data ) {
-            var att, i, l, keys, key, k, kl, val, keyNodes, keyAtts, nodes, ni, nl, txt, 
+            var att, i, l, keys, key, k, kl, val, TK, keyNodes, keyAtts, nestedKey, nk, nodes, ni, nl, txt, 
                 tpl_keys = renderer.tpl[0/*KEYS*/];
-            keys = Keys(data); kl = keys.length
+            keys = Keys(tpl_keys); kl = keys.length
             for (k=0; k<kl; k++)
             {
-                key = keys[k]; val = String(data[key]);
-                if ( !tpl_keys[HAS](key) ) continue;
+                key = keys[k]; TK = tpl_keys[key];
+                if ( (nestedKey = TK[2/*NESTED*/]) )
+                {
+                    nk = get_nested_key( key, data, nestedKey );
+                    if ( nk[0] ) val = String(nk[1]);
+                    else continue;
+                }
+                else if ( data[HAS](key) ) val = String(data[key]);
+                else continue;
                 
                 // element live text nodes
-                keyNodes = tpl_keys[key][0/*KEYS*/]; 
+                keyNodes = TK[0/*KEYS*/]; 
                 for (i=0,l=keyNodes.length; i<l; i++) 
                 {
                     keyNodes[i][0][VALUE] = val;
                 }
                 
                 // element live attributes
-                keyAtts = tpl_keys[key][1/*ATTS*/];
+                keyAtts = TK[1/*ATTS*/];
                 for (i=0,l=keyAtts.length; i<l; i++) 
                 {
                     att = keyAtts[i]; 
@@ -390,7 +409,7 @@ function Tpl( tpl, re_keys, revivable )
     renderer.dispose = function( ){ renderer.tpl = null; };
     return renderer;
 }
-Tpl.VERSION = "0.3.3";
+Tpl.VERSION = "0.3.4";
 // export it
 return Tpl;
 });
