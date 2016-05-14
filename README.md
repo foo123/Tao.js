@@ -7,6 +7,9 @@
 [Tao.js](https://raw.githubusercontent.com/foo123/Tao.js/master/Tao.js),  [Tao.min.js](https://raw.githubusercontent.com/foo123/Tao.js/master/Tao.min.js)
 
 
+[Meaning of Dao (Tao) in Chinese Philosophy (wikipedia)](https://en.wikipedia.org/wiki/Tao)
+
+
 **see also:**
 
 * [Contemplate](https://github.com/foo123/Contemplate) a light-weight template engine for Node/JS, PHP, Python, ActionScript
